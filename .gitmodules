@@ -1,0 +1,3 @@
+[submodule "src/zig-jwt"]
+	path = src/zig-jwt
+	url = git@github.com:leroycep/zig-jwt.git
