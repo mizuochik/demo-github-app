@@ -1,11 +1,8 @@
 const std = @import("std");
-const testing = std.testing;
-const log = std.log;
+const demo_github_app = @import("demo_github_app.zig");
 
 pub fn main() !void {
-    log.info("Hello demo-github-app", .{});
-}
-
-test {
-    testing.refAllDecls(@This());
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer std.debug.assert(gpa.deinit() == .ok);
+    std.log.info("Hello demo-github-app", .{});
 }
