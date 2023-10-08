@@ -4,20 +4,22 @@ const demo_github_app = @import("../demo_github_app.zig");
 const Self = @This();
 
 allocator: std.mem.Allocator,
+app_id: []const u8,
 private_key_path: []const u8,
 
-pub fn init(allocator: std.mem.Allocator, private_key_path: []const u8) Self {
+pub fn init(allocator: std.mem.Allocator, app_id: []const u8, private_key_path: []const u8) Self {
     return .{
         .allocator = allocator,
+        .app_id = app_id,
         .private_key_path = private_key_path,
     };
 }
 
-pub fn getInstallations(self: *Self) ![]u8 {
+pub fn getInstallations(self: *const Self) ![]u8 {
     var client = std.http.Client{ .allocator = self.allocator };
     defer client.deinit();
 
-    const jwt = try demo_github_app.jwt.generateJWT(self.allocator, self.private_key_path, std.time.timestamp());
+    const jwt = try demo_github_app.jwt.generateJWT(self.allocator, self.app_id, self.private_key_path, std.time.timestamp());
     defer self.allocator.free(jwt);
 
     var headers = std.http.Headers.init(self.allocator);
@@ -51,7 +53,7 @@ pub fn getInstallations(self: *Self) ![]u8 {
 }
 
 test "github_client: getInstallations" {
-    var gh_client = Self.init(std.testing.allocator, "src/demo_github_app/mizuochik-demo-github-app.2023-10-06.private-key.pem");
+    var gh_client = Self.init(std.testing.allocator, "404064", "src/demo_github_app/mizuochik-demo-github-app.2023-10-06.private-key.pem");
     const installations = try gh_client.getInstallations();
     defer std.testing.allocator.free(installations);
 }
