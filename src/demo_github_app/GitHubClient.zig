@@ -106,10 +106,52 @@ fn addAuthorizationBearerJWTHeader(self: *const Self, headers: *std.http.Headers
     try headers.append("Authorization", bearer);
 }
 
-test "github_client: getInstallation - getAccessToken" {
+pub fn getRepositoryContent(self: *const Self, owner: []const u8, repository: []const u8, path: []const u8, access_token: []const u8) ![]const u8 {
+    var client = std.http.Client{ .allocator = self.allocator };
+    defer client.deinit();
+
+    var headers = std.http.Headers.init(self.allocator);
+    defer headers.deinit();
+    const bearer = try std.fmt.allocPrint(self.allocator, "Bearer {s}", .{access_token});
+    defer self.allocator.free(bearer);
+    try headers.append("Accept", "application/vnd.github.raw");
+    try headers.append("Authorization", bearer);
+
+    const u8_uri = try std.fmt.allocPrint(self.allocator, "https://api.github.com/repos/{s}/{s}/contents/{s}", .{ owner, repository, path });
+    defer self.allocator.free(u8_uri);
+
+    const target = try std.Uri.parse(u8_uri);
+    var req = try client.request(.GET, target, headers, .{});
+    defer req.deinit();
+
+    std.log.info("> GET {}", .{target});
+    try req.start(.{});
+    try req.wait();
+    const body = try req.reader().readAllAlloc(self.allocator, 4096);
+    errdefer self.allocator.free(body);
+    switch (req.response.status) {
+        .ok => {
+            std.log.info("< {}", .{req.response.status});
+            std.log.info("< {s}", .{body});
+            return body;
+        },
+        else => {
+            std.log.err("< {}", .{req.response.status});
+            std.log.err("< {s}", .{body});
+            return error.InvalidStatus;
+        },
+    }
+}
+
+test "github_client: getInstallation - getAccessToken - getRepositoryContent" {
     var gh_client = Self.init(std.testing.allocator, "404064", "src/demo_github_app/mizuochik-demo-github-app.2023-10-06.private-key.pem");
     const installation = try gh_client.getInstallation("mizuochik", "demo-github-app");
     const access_token = try gh_client.getInstallationAccessToken(installation.id);
     defer std.testing.allocator.free(access_token);
-    try std.testing.expect(access_token.len > 0);
+
+    const readme_content = try gh_client.getRepositoryContent("mizuochik", "demo-github-app", "README.md", access_token);
+    defer std.testing.allocator.free(readme_content);
+
+    var it = std.mem.split(u8, readme_content, "\n");
+    try std.testing.expectEqualStrings("# demo-github-app", it.first());
 }
